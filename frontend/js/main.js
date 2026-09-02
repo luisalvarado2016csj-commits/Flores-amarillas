@@ -378,7 +378,7 @@ function animar(timestamp) {
                 if (i < texto.length) {
                     finalMsg.innerHTML = texto.substring(0, i + 1) + '<span class="cursor">_</span>';
                     i++;
-                    setTimeout(escribir, 35); // Velocidad a la mitad (más lenta) para cuadrar con la canción
+                    setTimeout(escribir, 60); // Aún más lento (60ms) para que encaje perfecto
                 } else {
                     finalMsg.innerHTML = texto; // Quita el cursor al terminar
                 }
