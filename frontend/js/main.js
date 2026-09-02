@@ -70,10 +70,12 @@ const ctx = canvas.getContext("2d");
 
 let W, H;
 let animacionActiva = false;
+let isMobile = false;
 
 function ajustarCanvas() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
+    isMobile = W < 768;
 }
 
 ajustarCanvas();
@@ -85,6 +87,7 @@ let floresCayendo = [];
 let crecimiento = 0;
 let desplazamientoX = 0;
 let mensajeMostrado = false;
+let lastTime = 0;
 
 // Polgonos del rbol (coordenadas SVG originales 500x500)
 const ramasFijas = [
@@ -105,6 +108,64 @@ const ramasFijas = [
     [252,100, 300,50, 295,45, 248,100]
 ];
 
+// =====================================================
+// OPTIMIZACI"N: Pre-renderizar Hoja y Flor (Sprites)
+// =====================================================
+const leafSprite = document.createElement("canvas");
+const leafCtx = leafSprite.getContext("2d");
+leafSprite.width = 40;
+leafSprite.height = 40;
+
+function preRenderLeaf() {
+    const size = 10;
+    leafCtx.translate(20, 20); // Centrar en el sprite
+    leafCtx.beginPath();
+    leafCtx.moveTo(0, 0);
+    leafCtx.quadraticCurveTo(size, -size*0.8, size*2, 0);
+    leafCtx.quadraticCurveTo(size, size*0.8, 0, 0);
+    
+    const grad = leafCtx.createLinearGradient(0, -size, size*2, size);
+    grad.addColorStop(0, '#5fa743');
+    grad.addColorStop(1, '#3b6e26');
+    
+    leafCtx.fillStyle = grad;
+    leafCtx.fill();
+}
+preRenderLeaf();
+
+const flowerSprite = document.createElement("canvas");
+const flowerCtx = flowerSprite.getContext("2d");
+flowerSprite.width = 60;
+flowerSprite.height = 60;
+
+function preRenderFlower() {
+    const r = 12; // Tamaño base del sprite
+    flowerCtx.translate(30, 30);
+    
+    const numPetalos = 16; 
+    for (let i = 0; i < numPetalos; i++) {
+        const a = i * Math.PI * 2 / numPetalos;
+        flowerCtx.save();
+        flowerCtx.rotate(a);
+        
+        flowerCtx.beginPath();
+        flowerCtx.moveTo(0, 0);
+        flowerCtx.quadraticCurveTo(r*0.4, r*0.3, r*1.2, 0);
+        flowerCtx.quadraticCurveTo(r*0.4, -r*0.3, 0, 0);
+        
+        flowerCtx.fillStyle = '#FFD700'; 
+        flowerCtx.fill();
+        flowerCtx.restore();
+    }
+    
+    // CENTRO MARR"N DEL GIRASOL
+    flowerCtx.beginPath();
+    flowerCtx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+    flowerCtx.fillStyle = '#3E2723'; 
+    flowerCtx.fill();
+}
+preRenderFlower();
+
 function puntoCorazon(t, escala) {
     const x = 16 * Math.pow(Math.sin(t), 3);
     const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
@@ -124,9 +185,14 @@ function prepararArbol() {
     const centroY = offsetY - (290 * escalaTronco); 
     const escalaCorazon = baseSize * 0.024;
 
+    // Cantidades optimizadas para celular vs PC
+    const cantidadHojas = isMobile ? 300 : 900;
+    const cantidadFlores = isMobile ? 700 : 2000;
+    const cantidadCaidas = isMobile ? 15 : 35;
+
     // FLORES CAYENDO (Desde el árbol)
     floresCayendo = [];
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < cantidadCaidas; i++) {
         const t_corazon = Math.random() * Math.PI * 2;
         const borde_corazon = puntoCorazon(t_corazon, escalaCorazon);
         const factor_c = Math.sqrt(Math.random());
@@ -145,7 +211,7 @@ function prepararArbol() {
     }
 
     // HOJAS VERDES (Fondo)
-    for (let i = 0; i < 900; i++) {
+    for (let i = 0; i < cantidadHojas; i++) {
         const t = Math.random() * Math.PI * 2;
         const borde = puntoCorazon(t, escalaCorazon);
         const factor = Math.sqrt(Math.random());
@@ -153,14 +219,14 @@ function prepararArbol() {
         let y = centroY + borde.y * factor + (Math.random() - .5) * 30;
         hojas.push({
             x, y,
-            tamao: 3 + Math.random() * 7,
+            tamao: 3 + Math.random() * 7, // Radio lógico
             rotacion: Math.random() * Math.PI * 2,
             retraso: 0.8 + Math.random() * 0.8
         });
     }
 
     // GIRASOLES (Frente)
-    for (let i = 0; i < 2800; i++) { // An ms girasoles
+    for (let i = 0; i < cantidadFlores; i++) { 
         const t = Math.random() * Math.PI * 2;
         const borde = puntoCorazon(t, escalaCorazon);
         const factor = Math.sqrt(Math.random());
@@ -211,24 +277,17 @@ function dibujarArbolFijo() {
 
 function dibujarHoja(h, intensidad) {
     const p = Math.min(1, intensidad);
-    const escala = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; 
+    const escalaEfecto = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; 
     
+    // El sprite base es de tamaño 10, la hoja real es h.tamao
+    const escalaFinal = (h.tamao / 10) * escalaEfecto;
+
     ctx.save();
     ctx.translate(h.x, h.y);
     ctx.rotate(h.rotacion);
-    ctx.scale(escala, escala);
-    
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(h.tamao, -h.tamao*0.8, h.tamao*2, 0);
-    ctx.quadraticCurveTo(h.tamao, h.tamao*0.8, 0, 0);
-    
-    const grad = ctx.createLinearGradient(0, -h.tamao, h.tamao*2, h.tamao);
-    grad.addColorStop(0, '#5fa743');
-    grad.addColorStop(1, '#3b6e26');
-    
-    ctx.fillStyle = grad;
-    ctx.fill();
+    ctx.scale(escalaFinal, escalaFinal);
+    // Dibujar el sprite precargado (centrado)
+    ctx.drawImage(leafSprite, -20, -20);
     ctx.restore();
 }
 
@@ -236,46 +295,36 @@ function dibujarFlor(f, intensidad) {
     if (intensidad <= 0) return;
     
     const t = Math.min(1, intensidad);
-    const escala = 1 - Math.pow(1 - t, 3); 
+    const escalaEfecto = 1 - Math.pow(1 - t, 3); 
     
+    // El sprite base es de radio 12, la flor real es f.tamao
+    const escalaFinal = (f.tamao / 12) * escalaEfecto;
+
     ctx.save();
     ctx.translate(f.x, f.y);
-    ctx.rotate(f.rotacion + (1 - escala) * Math.PI);
-    ctx.scale(escala, escala);
-    
-    const r = f.tamao;
-    
-    // PTALOS DEL GIRASOL
-    const numPetalos = 16; 
-    for (let i = 0; i < numPetalos; i++) {
-        const a = i * Math.PI * 2 / numPetalos;
-        ctx.save();
-        ctx.rotate(a);
-        
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(r*0.4, r*0.3, r*1.2, 0);
-        ctx.quadraticCurveTo(r*0.4, -r*0.3, 0, 0);
-        
-        ctx.fillStyle = '#FFD700'; 
-        ctx.fill();
-        ctx.restore();
-    }
-    
-    // CENTRO MARR"N DEL GIRASOL
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
-    ctx.fillStyle = '#3E2723'; 
-    ctx.fill();
-    
+    ctx.rotate(f.rotacion + (1 - escalaEfecto) * Math.PI);
+    ctx.scale(escalaFinal, escalaFinal);
+    ctx.drawImage(flowerSprite, -30, -30);
     ctx.restore();
 }
 
-function animar() {
-    if (!animacionActiva) return;
+function animar(timestamp) {
+    if (!animacionActiva) {
+        lastTime = 0;
+        return;
+    }
+    
+    if (!lastTime) lastTime = timestamp;
+    // Limitamos dt para evitar saltos enormes si se cambia de pestaña
+    let dt = timestamp - lastTime;
+    if (dt > 100) dt = 16; 
+    lastTime = timestamp;
+
     ctx.clearRect(0, 0, W, H);
     
-    crecimiento += .016;
+    // Originalmente sumaba 0.016 por frame (a 60fps). 
+    // Usamos dt para que crezca exactamente al mismo tiempo real, con o sin lag.
+    crecimiento += (dt / 1000) * 0.96; // Ajustado para mantener la misma velocidad que antes
 
     // Lnea de suelo
     const ySuelo = H * 0.92;
@@ -343,8 +392,9 @@ function animar() {
     if (crecimiento > 2.2) {
         ctx.globalAlpha = 0.6; // Suaves y un poco transparentes
         for (const f of floresCayendo) {
-            f.y += f.velocidadY;
-            f.rotacion += f.velocidadRotacion;
+            // Ajustar velocidad por dt para que caigan suavemente incluso con lag
+            f.y += f.velocidadY * (dt / 16);
+            f.rotacion += f.velocidadRotacion * (dt / 16);
             
             // Si sale de la pantalla, vuelve al árbol original
             if (f.y > H + 20) {
