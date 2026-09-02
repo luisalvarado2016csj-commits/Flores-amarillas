@@ -314,6 +314,8 @@ function animar(timestamp) {
         return;
     }
     
+    if (timestamp === undefined) timestamp = performance.now();
+    
     if (!lastTime) lastTime = timestamp;
     // Limitamos dt para evitar saltos enormes si se cambia de pestaña
     let dt = timestamp - lastTime;
