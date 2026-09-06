@@ -9,7 +9,6 @@ body {
     font-family: Georgia, "Times New Roman", serif;
 }
 
-
 .screen {
     position: fixed;
     inset: 0;
@@ -33,7 +32,6 @@ body {
     transform: scale(1.08);
 }
 
-
 .welcome {
     background-color: #FFF3C7;
     flex-direction: column;
@@ -49,8 +47,6 @@ body {
     z-index: 2;
     line-height: 1.4;
 }
-
-/* Margarita */
 
 .flower-button {
     position: relative;
@@ -160,10 +156,6 @@ body {
     }
 }
 
-/* =========================
-   SEGUNDA PANTALLA
-========================= */
-
 .tree-screen {
     flex-direction: column;
 }
@@ -184,7 +176,6 @@ body {
     cursor: pointer;
 }
 
-/* Botón de música */
 .music-btn {
     position: absolute;
     top: 30px;
@@ -207,9 +198,6 @@ body {
     animation: none;
     filter: grayscale(80%);
 }
-
-/* Contenedor árbol */
-
 
 .message {
     position: absolute;
@@ -255,9 +243,6 @@ body {
     }
 }
 
-/* =========================
-   ESTILOS SVG
-========================= */
 .lienzo {
     width: 500px;
     height: 500px;
@@ -312,16 +297,15 @@ body {
     }
 }
 
-
 .final-message {
     position: absolute;
     left: 10%;
     top: 50%;
     transform: translateY(-50%);
     width: 45%;
-    /* Más ancho para acomodar el texto largo */
+    
     font-size: 2.5rem;
-    /* Tamaño de letra más pequeño para que no se salga */
+    
     font-family: 'Dancing Script', cursive;
     color: #4A3022;
     font-weight: 700;
